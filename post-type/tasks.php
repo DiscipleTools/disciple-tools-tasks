@@ -30,8 +30,7 @@ class Disciple_Tools_Tasks_Base {
 
         //setup tiles and fields
         add_filter( 'dt_custom_fields_settings', [ $this, 'dt_custom_fields_settings' ], 10, 2 );
-        add_filter( 'dt_details_additional_tiles', [ $this, 'dt_details_additional_tiles' ], 10, 2 );
-        add_action( 'dt_details_additional_section', [ $this, 'dt_details_additional_section' ], 20, 2 );
+//        add_filter( 'dt_details_additional_tiles', [ $this, 'dt_details_additional_tiles' ], 10, 2 );
         add_action( 'wp_enqueue_scripts', [ $this, 'scripts' ], 99 );
         add_filter( 'dt_get_post_type_settings', [ $this, 'dt_get_post_type_settings' ], 20, 2 );
 
@@ -43,8 +42,9 @@ class Disciple_Tools_Tasks_Base {
         add_action( 'post_connection_added', [ $this, 'post_connection_added' ], 10, 4 );
         add_filter( 'dt_post_update_fields', [ $this, 'dt_post_update_fields' ], 10, 3 );
         add_filter( 'dt_post_create_fields', [ $this, 'dt_post_create_fields' ], 10, 2 );
-        add_action( 'dt_post_created', [ $this, 'dt_post_created' ], 10, 3 );
         add_action( 'dt_comment_created', [ $this, 'dt_comment_created' ], 10, 4 );
+        add_action( 'dt_post_created', [ $this, 'dt_post_created' ], 10, 3 );
+        add_action( 'dt_post_updated', [ $this, 'dt_post_updated' ], 10, 3 );
 
         //list
         add_filter( 'dt_user_list_filters', [ $this, 'dt_user_list_filters' ], 10, 2 );
@@ -103,20 +103,18 @@ class Disciple_Tools_Tasks_Base {
 
         if ( $post_type === $this->post_type ){
 
-
+            $fields['name']['tile'] = 'status';
             $fields['status'] = [
                 'name'        => __( 'Status', 'disciple-tools-tasks' ),
                 'description' => __( 'Set the current status.', 'disciple-tools-tasks' ),
                 'type'        => 'key_select',
                 'default'     => [
-                    'inactive' => [
-                        'label' => __( 'Inactive', 'disciple-tools-tasks' ),
-                        'description' => __( 'No longer active.', 'disciple-tools-tasks' ),
+                    'todo' => [
+                        'label' => __( 'Todo', 'disciple-tools-tasks' ),
                         'color' => '#F43636'
                     ],
-                    'active'   => [
-                        'label' => __( 'Active', 'disciple-tools-tasks' ),
-                        'description' => __( 'Is active.', 'disciple-tools-tasks' ),
+                    'done'   => [
+                        'label' => __( 'Done', 'disciple-tools-tasks' ),
                         'color' => '#4CAF50'
                     ],
                 ],
@@ -125,21 +123,21 @@ class Disciple_Tools_Tasks_Base {
                 'default_color' => '#366184',
                 'show_in_table' => 10,
             ];
-            $fields['assigned_to'] = [
-                'name'        => __( 'Assigned To', 'disciple-tools-tasks' ),
-                'description' => __( 'Select the main person who is responsible for reporting on this record.', 'disciple-tools-tasks' ),
-                'type'        => 'user_select',
-                'default'     => '',
+
+            $fields['assigned_contact'] = [
+                'name'        => __( 'Assigned Contact', 'disciple-tools-tasks' ),
+                'type' => 'connection',
+                'post_type' => 'contacts',
+                'p2p_direction' => 'to',
+                'p2p_key' => 'task_to_assigned',
                 'tile' => 'status',
-                'icon' => get_template_directory_uri() . '/dt-assets/images/assigned-to.svg',
-                'show_in_table' => 16,
             ];
             $fields['record_link'] = [
                 'name' => __( 'Record Link', 'disciple-tools-tasks' ),
                 'description' => __( 'Link to the record this task is related to.', 'disciple-tools-tasks' ),
                 'type' => 'text',
                 'default' => '',
-                'tile' => 'status',
+                'tile' => 'details',
                 'icon' => get_template_directory_uri() . '/dt-assets/images/link.svg',
                 'show_in_table' => 20,
             ];
@@ -156,7 +154,7 @@ class Disciple_Tools_Tasks_Base {
                     'post_type' => $p,
                     'p2p_direction' => 'any',
                     'p2p_key' => $p . '_to_' . $this->post_type,
-                    'tile' => 'connections',
+                    'tile' => 'details',
                     'icon' => get_template_directory_uri() . '/dt-assets/images/group-type.svg',
                     'create-icon' => get_template_directory_uri() . '/dt-assets/images/add-group.svg',
                 ];
@@ -175,8 +173,6 @@ class Disciple_Tools_Tasks_Base {
                 'icon' => get_template_directory_uri() . '/dt-assets/images/group-type.svg',
                 'create-icon' => get_template_directory_uri() . '/dt-assets/images/add-group.svg',
             ];
-
-
         }
 
         return $fields;
@@ -186,12 +182,15 @@ class Disciple_Tools_Tasks_Base {
         if ( isset( $dt_post['dt_tasks'] ) ): ?>
             <?php foreach ( $dt_post['dt_tasks'] as $connected_task ) :
                 $task = DT_Posts::get_post( 'tasks', $connected_task['ID'], true, false );
-
+                if ( $task['status']['key'] !== 'todo' ){
+                    continue;
+                }
             ?>
             <section class="cell small-12">
                 <div class="bordered-box detail-notification-box" style="background-color: #FF9800; text-align: start">
                     <div class="section-subheader">
-                        <?php echo esc_html( $task['assigned_to']['display'] ?? 'Nobody' ); ?>
+
+                        <?php echo esc_html( $task['assigned_contact'][0]['post_title'] ?? 'Nobody' ); ?>
                     </div>
                     <div style="display: flex; justify-content: space-between">
                         <div>
@@ -216,33 +215,7 @@ class Disciple_Tools_Tasks_Base {
         return $tiles;
     }
 
-    /**
-     * @todo define additional section content
-     * Documentation
-     * @link https://github.com/DiscipleTools/Documentation/blob/master/Theme-Core/field-and-tiles.md#add-custom-content
-     */
-    public function dt_details_additional_section( $section, $post_type ){
 
-        if ( $post_type === $this->post_type && $section === 'other' ) {
-            $fields = DT_Posts::get_post_field_settings( $post_type );
-            $post = DT_Posts::get_post( $this->post_type, get_the_ID() );
-            ?>
-            <div class="section-subheader">
-                <?php esc_html_e( 'Custom Section Contact', 'disciple-tools-tasks' ) ?>
-            </div>
-            <div>
-                <p>Add information or custom fields here</p>
-            </div>
-
-        <?php }
-    }
-
-    /**
-     * action when a post connection is added during create or update
-     * @todo catch field changes and do additional processing
-     *
-     * The next three functions are added, removed, and updated of the same field concept
-     */
     public function post_connection_added( $post_type, $post_id, $field_key, $value ){
 //        if ( $post_type === $this->post_type ){
 //            if ( $field_key === "members" ){
@@ -284,14 +257,37 @@ class Disciple_Tools_Tasks_Base {
         if ( $post_type === $this->post_type ){
             $post_fields = DT_Posts::get_post_field_settings( $post_type );
             if ( isset( $post_fields['status'] ) && !isset( $fields['status'] ) ){
-                $fields['status'] = 'active';
+                $fields['status'] = 'todo';
             }
         }
         return $fields;
     }
 
+    public function create_task_for_webform( $post_type, $post_id, $initial_fields ){
+        if ( $post_type === 'contacts' ){
+            if ( isset( $initial_fields['notes'] ) && str_contains( $initial_fields['notes'][0], 'Source Form' ) ){
+                $task = [
+                    'title' => 'Review Webform',
+                    'status' => 'todo',
+                    'record_link' => get_permalink( $post_id ),
+                    'connected_task_' . $post_type => [ 'values' => [ [ 'value' => $post_id ] ] ]
+                ];
+                if ( isset( $initial_fields['assigned_to'] ) ){
+                    $user_id = dt_get_user_id_from_assigned_to( $initial_fields['assigned_to'] );
+                    $user_contact = get_user_option( 'corresponds_to_contact', $user_id );
+                    $task['assigned_contact'] = [ 'values' => [ [ 'value' => $user_contact ] ] ];
+                }
+                $create = DT_Posts::create_post( 'tasks', $task, false, false );
+            }
+        }
+    }
+
     //action when a post has been created
     public function dt_post_created( $post_type, $post_id, $initial_fields ){
+        $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
+    }
+    public function dt_post_updated( $post_type, $post_id, $initial_fields ){
+        $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
     }
 
     //list page filters function
