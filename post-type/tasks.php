@@ -38,11 +38,8 @@ class Disciple_Tools_Tasks_Base {
 
 
         // hooks
-        add_action( 'post_connection_removed', [ $this, 'post_connection_removed' ], 10, 4 );
-        add_action( 'post_connection_added', [ $this, 'post_connection_added' ], 10, 4 );
-        add_filter( 'dt_post_update_fields', [ $this, 'dt_post_update_fields' ], 10, 3 );
+//        add_filter( 'dt_post_update_fields', [ $this, 'dt_post_update_fields' ], 10, 3 );
         add_filter( 'dt_post_create_fields', [ $this, 'dt_post_create_fields' ], 10, 2 );
-        add_action( 'dt_comment_created', [ $this, 'dt_comment_created' ], 10, 4 );
         add_action( 'dt_post_created', [ $this, 'dt_post_created' ], 10, 3 );
         add_action( 'dt_post_updated', [ $this, 'dt_post_updated' ], 10, 3 );
 
@@ -131,6 +128,7 @@ class Disciple_Tools_Tasks_Base {
                 'p2p_direction' => 'to',
                 'p2p_key' => 'task_to_assigned',
                 'tile' => 'status',
+                'show_in_table' => 15
             ];
             $fields['record_link'] = [
                 'name' => __( 'Record Link', 'disciple-tools-tasks' ),
@@ -140,6 +138,13 @@ class Disciple_Tools_Tasks_Base {
                 'tile' => 'details',
                 'icon' => get_template_directory_uri() . '/dt-assets/images/link.svg',
                 'show_in_table' => 20,
+            ];
+            $fields['linked_comment'] = [
+                'name' => __( 'Linked Comment', 'disciple-tools-tasks' ),
+                'type' => 'text',
+                'default' => '',
+                'tile' => 'details',
+                'icon' => get_template_directory_uri() . '/dt-assets/images/link.svg',
             ];
 
             $all_post_types = DT_Posts::get_post_types();
@@ -172,12 +177,22 @@ class Disciple_Tools_Tasks_Base {
                 'tile' => 'status',
                 'icon' => get_template_directory_uri() . '/dt-assets/images/group-type.svg',
                 'create-icon' => get_template_directory_uri() . '/dt-assets/images/add-group.svg',
+                'hidden' => true,
             ];
         }
 
         return $fields;
     }
 
+    /**
+     *
+     * Display tasks on records
+     *
+     *
+     * @param $post_type
+     * @param $dt_post
+     * @return void
+     */
     public function dt_record_notifications_section( $post_type, $dt_post ){
         if ( isset( $dt_post['dt_tasks'] ) ): ?>
             <?php foreach ( $dt_post['dt_tasks'] as $connected_task ) :
@@ -186,7 +201,7 @@ class Disciple_Tools_Tasks_Base {
                     continue;
                 }
             ?>
-            <section class="cell small-12">
+            <section class="cell small-12" id="task-<?php echo esc_html( $task['ID'] ); ?>">
                 <div class="bordered-box detail-notification-box" style="background-color: #FF9800; text-align: start">
                     <div class="section-subheader">
 
@@ -199,11 +214,48 @@ class Disciple_Tools_Tasks_Base {
                                 <img class="dt-icon dt-white-icon" src="<?php echo esc_html( get_template_directory_uri() . '/dt-assets/images/open-link.svg' ) ?>"/>
                             </a>
                         </div>
-                        <button class="task-complete-button button small" style="background: #4caf50; margin: 0"><?php esc_html_e( 'Complete', 'disciple_tools' )?></button>
+                        <div>
+                            <?php if ( !empty( $task['linked_comment'])) : ?>
+                                <button class="button small task-scroll-comment" style="margin-bottom: 0" data-comment="<?php echo esc_html( $task['linked_comment'] ); ?>">See Comment</button>
+
+                            <?php endif; ?>
+                        <button class="task-complete-button button small loader" style="background: #4caf50; margin: 0" data-task="<?php echo esc_html( $task['ID'] ); ?>"><?php esc_html_e( 'Complete', 'disciple_tools' )?></button>
+                        </div>
                     </div>
                 </div>
             </section>
+
+            <script>
+              jQuery(document).ready(function ($) {
+                $('.task-scroll-comment').on('click', function () {
+                  let comment_id = $(this).data('comment');
+                  let target = $(`#comments-wrapper [data-comment-id="${comment_id}"]`).closest('.activity-text')
+                  target.get(0).scrollIntoView({behavior: 'smooth'});
+                  target.addClass('comment-highlighted');
+                  setTimeout(function () {
+                    target.addClass('comment-fadeOut');
+                  }, 1000);
+
+                })
+                $('.task-complete-button').on('click', function () {
+                  let task_id = $(this).data('task');
+                  $(this).addClass('loading');
+                  window.API.update_post('tasks', task_id, {status: 'done'}).then(function (response) {
+                    $(`#task-${task_id}`).fadeOut(300);
+                  })
+                })
+              })
+            </script>
             <?php endforeach; ?>
+            <style>
+                .comment-highlighted {
+                    background-color: #FF9800;
+                    transition: background-color 1s .5s;
+                }
+                .comment-fadeOut {
+                    background-color: white;
+                }
+            </style>
         <?php endif;
     }
 
@@ -229,11 +281,24 @@ class Disciple_Tools_Tasks_Base {
     public function create_task_for_webform( $post_type, $post_id, $initial_fields ){
         if ( $post_type === 'contacts' ){
             if ( isset( $initial_fields['notes'] ) && str_contains( $initial_fields['notes'][0], 'Source Form' ) ){
+                global $wpdb;
+                $post_comments = DT_Posts::get_post_comments( 'contacts', $post_id, false );
+                //find the created comment
+
+                $notes_exploded = explode( "\r\n", $initial_fields['notes'][0] );
+                $name = 'Review Webform';
+                if ( isset( $notes_exploded[1] ) && str_contains( $notes_exploded[1], 'Description: ' ) ){
+                    $name = str_replace(  'Description: ', '', $notes_exploded[1] );
+                } elseif ( get_current_user_id() === 0 && !empty( wp_get_current_user()->display_name )){
+                    $name = 'Review ' . wp_get_current_user()->display_name;
+                }
+
                 $task = [
-                    'title' => 'Review Webform',
+                    'title' => $name,
                     'status' => 'todo',
                     'record_link' => get_permalink( $post_id ),
-                    'connected_task_' . $post_type => [ 'values' => [ [ 'value' => $post_id ] ] ]
+                    'connected_task_' . $post_type => [ 'values' => [ [ 'value' => $post_id ] ] ],
+                    'linked_comment' => isset( $post_comments['comments'][0]['comment_ID'] ) ? $post_comments['comments'][0]['comment_ID'] : '',
                 ];
                 if ( isset( $initial_fields['assigned_to'] ) ){
                     $user_id = dt_get_user_id_from_assigned_to( $initial_fields['assigned_to'] );
