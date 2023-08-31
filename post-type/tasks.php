@@ -215,43 +215,6 @@ class Disciple_Tools_Tasks_Base {
         return $tiles;
     }
 
-
-    public function post_connection_added( $post_type, $post_id, $field_key, $value ){
-//        if ( $post_type === $this->post_type ){
-//            if ( $field_key === "members" ){
-//                // @todo change 'members'
-//                // execute your code here, if field key match
-//            }
-//            if ( $field_key === "coaches" ){
-//                // @todo change 'coaches'
-//                // execute your code here, if field key match
-//            }
-//        }
-//        if ( $post_type === "contacts" && $field_key === $this->post_type ){
-//            // execute your code here, if a change is made in contacts and a field key is matched
-//        }
-    }
-
-    //action when a post connection is removed during create or update
-    public function post_connection_removed( $post_type, $post_id, $field_key, $value ){
-//        if ( $post_type === $this->post_type ){
-//            // execute your code here, if connection removed
-//        }
-    }
-
-    //filter at the start of post update
-    public function dt_post_update_fields( $fields, $post_type, $post_id ){
-//        if ( $post_type === $this->post_type ){
-//            // execute your code here
-//        }
-        return $fields;
-    }
-
-
-    //filter when a comment is created
-    public function dt_comment_created( $post_type, $post_id, $comment_id, $type ){
-    }
-
     // filter at the start of post creation
     public function dt_post_create_fields( $fields, $post_type ){
         if ( $post_type === $this->post_type ){
@@ -401,7 +364,7 @@ class Disciple_Tools_Tasks_Base {
                 ];
                 // add assigned to me filters
                 $filters['filters'][] = [
-                    'ID' => 'all',
+                    'ID' => 'all_status',
                     'tab' => 'by_status',
                     'name' => __( 'All', 'disciple-tools-tasks' ),
                     'query' => [
