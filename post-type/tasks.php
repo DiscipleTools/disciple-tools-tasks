@@ -44,9 +44,10 @@ class Disciple_Tools_Tasks_Base {
         add_action( 'dt_post_updated', [ $this, 'dt_post_updated' ], 10, 3 );
 
         //list
-        add_filter( 'dt_user_list_filters', [ $this, 'dt_user_list_filters' ], 10, 2 );
+        add_filter( 'dt_user_list_filters', [ $this, 'dt_user_list_filters' ], 120, 2 );
         add_filter( 'dt_filter_access_permissions', [ $this, 'dt_filter_access_permissions' ], 20, 2 );
 
+        add_filter( 'desktop_navbar_menu_options', [ $this, 'desktop_navbar_menu_options' ], 25, 1 );
     }
 
     public function after_setup_theme(){
@@ -56,6 +57,13 @@ class Disciple_Tools_Tasks_Base {
         if ( class_exists( 'Disciple_Tools_Post_Type_Template' ) ) {
             new Disciple_Tools_Post_Type_Template( $this->post_type, $this->single_name, $this->plural_name );
         }
+    }
+
+    public function desktop_navbar_menu_options( $tabs ){
+        if ( isset( $tabs[$this->post_type] ) ){
+            $tabs[$this->post_type]['hidden'] = true;
+        }
+        return $tabs;
     }
 
       /**
@@ -205,7 +213,7 @@ class Disciple_Tools_Tasks_Base {
                 <div class="bordered-box detail-notification-box" style="background-color: #FF9800; text-align: start">
                     <div class="section-subheader">
 
-                        <?php echo esc_html( $task['assigned_contact'][0]['post_title'] ?? 'Nobody' ); ?>
+                        <i class="mdi mdi-account"></i><?php echo esc_html( $task['assigned_contact'][0]['post_title'] ?? 'Nobody' ); ?>
                     </div>
                     <div style="display: flex; justify-content: space-between">
                         <div>
@@ -319,56 +327,35 @@ class Disciple_Tools_Tasks_Base {
     }
 
     //list page filters function
-
-    /**
-     * @todo adjust queries to support list counts
-     * Documentation
-     * @link https://github.com/DiscipleTools/Documentation/blob/master/Theme-Core/list-query.md
-     */
     private static function count_records_assigned_to_me_by_status(){
         global $wpdb;
         $post_type = self::post_type();
         $current_user = get_current_user_id();
 
+        $contact_id = Disciple_Tools_Users::get_contact_for_user( $current_user );
+
         $results = $wpdb->get_results( $wpdb->prepare( "
-            SELECT status.meta_value as status, count(pm.post_id) as count
-            FROM $wpdb->postmeta pm
-            INNER JOIN $wpdb->posts a ON( a.ID = pm.post_id AND a.post_type = %s and a.post_status = 'publish' )
-            INNER JOIN $wpdb->postmeta status ON ( status.post_id = pm.post_id AND status.meta_key = 'status' )
-            WHERE pm.meta_key = 'assigned_to'
-            AND pm.meta_value = CONCAT( 'user-', %s )
-            GROUP BY status.meta_value
-        ", $post_type, $current_user ), ARRAY_A);
+            SELECT status.meta_value as status, count(p2p.p2p_to) as count
+            FROM $wpdb->p2p as p2p
+            INNER JOIN $wpdb->posts a ON( a.ID = p2p.p2p_to AND a.post_type = %s and a.post_status = 'publish' )
+            INNER JOIN $wpdb->postmeta status ON ( status.post_id = p2p.p2p_to AND status.meta_key = 'status' )
+            WHERE ( p2p.p2p_from = %d AND p2p.p2p_type = 'task_to_assigned' )
 
-        return $results;
-    }
-
-    //list page filters function
-    private static function count_records_by_status(){
-        global $wpdb;
-        $results = $wpdb->get_results($wpdb->prepare( "
-            SELECT status.meta_value as status, count(status.post_id) as count
-            FROM $wpdb->postmeta status
-            INNER JOIN $wpdb->posts a ON( a.ID = status.post_id AND a.post_type = %s and a.post_status = 'publish' )
-            WHERE status.meta_key = 'status'
             GROUP BY status.meta_value
-        ", self::post_type() ), ARRAY_A );
+        ", $post_type, $contact_id ), ARRAY_A);
 
         return $results;
     }
 
     //build list page filters
     public static function dt_user_list_filters( $filters, $post_type ){
-        /**
-         * @todo process and build filter lists
-         */
+
         if ( $post_type === self::post_type() ){
             $records_assigned_to_me_by_status_counts = self::count_records_assigned_to_me_by_status();
             $fields = DT_Posts::get_post_field_settings( $post_type );
             /**
              * Setup my filters
              */
-            $active_counts = [];
             $status_counts = [];
             $total_my = 0;
             foreach ( $records_assigned_to_me_by_status_counts as $count ){
@@ -376,20 +363,13 @@ class Disciple_Tools_Tasks_Base {
                 dt_increment( $status_counts[$count['status']], $count['count'] );
             }
 
-            // add assigned to me tab
-            $filters['tabs'][] = [
-                'key' => 'assigned_to_me',
-                'label' => __( 'Assigned to me', 'disciple-tools-tasks' ),
-                'count' => $total_my,
-                'order' => 20
-            ];
             // add assigned to me filters
             $filters['filters'][] = [
                 'ID' => 'my_all',
-                'tab' => 'assigned_to_me',
-                'name' => __( 'All', 'disciple-tools-tasks' ),
+                'tab' => 'all',
+                'name' => __( 'My Tasks', 'disciple-tools-tasks' ),
                 'query' => [
-                    'assigned_to' => [ 'me' ],
+                    'assigned_contact' => [ 'me' ],
                     'sort' => 'status'
                 ],
                 'count' => $total_my,
@@ -399,58 +379,15 @@ class Disciple_Tools_Tasks_Base {
                 if ( isset( $status_counts[$status_key] ) ){
                     $filters['filters'][] = [
                         'ID' => 'my_' . $status_key,
-                        'tab' => 'assigned_to_me',
-                        'name' => $status_value['label'],
+                        'tab' => 'all',
+                        'name' => 'My ' . $status_value['label'],
                         'query' => [
-                            'assigned_to' => [ 'me' ],
+                            'assigned_contact' => [ 'me' ],
                             'status' => [ $status_key ],
                             'sort' => '-post_date'
                         ],
                         'count' => $status_counts[$status_key]
                     ];
-                }
-            }
-
-            if ( DT_Posts::can_view_all( self::post_type() ) ){
-                $records_by_status_counts = self::count_records_by_status();
-                $status_counts = [];
-                $total_all = 0;
-                foreach ( $records_by_status_counts as $count ){
-                    $total_all += $count['count'];
-                    dt_increment( $status_counts[$count['status']], $count['count'] );
-                }
-
-                // add by Status Tab
-                $filters['tabs'][] = [
-                    'key' => 'by_status',
-                    'label' => __( 'All By Status', 'disciple-tools-tasks' ),
-                    'count' => $total_all,
-                    'order' => 30
-                ];
-                // add assigned to me filters
-                $filters['filters'][] = [
-                    'ID' => 'all_status',
-                    'tab' => 'by_status',
-                    'name' => __( 'All', 'disciple-tools-tasks' ),
-                    'query' => [
-                        'sort' => '-post_date'
-                    ],
-                    'count' => $total_all
-                ];
-
-                foreach ( $fields['status']['default'] as $status_key => $status_value ) {
-                    if ( isset( $status_counts[$status_key] ) ){
-                        $filters['filters'][] = [
-                            'ID' => 'all_' . $status_key,
-                            'tab' => 'by_status',
-                            'name' => $status_value['label'],
-                            'query' => [
-                                'status' => [ $status_key ],
-                                'sort' => '-post_date'
-                            ],
-                            'count' => $status_counts[$status_key]
-                        ];
-                    }
                 }
             }
         }

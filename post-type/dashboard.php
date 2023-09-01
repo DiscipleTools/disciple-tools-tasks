@@ -22,7 +22,7 @@ class DT_Tasks_Tile extends DT_Dashboard_Tile
         $contact_id = get_user_option( 'corresponds_to_contact', get_current_user_id() );
 
         $my_tasks = DT_Posts::list_posts( 'tasks', [
-            'fields' => [ 'assigned_contact' => [ $contact_id ] ],
+            'fields' => [ 'assigned_contact' => [ $contact_id ], 'status' => [ 'todo' ] ],
             'sort' => '-post_date',
             'limit' => 20
         ], true );
