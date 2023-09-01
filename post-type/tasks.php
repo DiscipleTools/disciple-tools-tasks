@@ -175,7 +175,7 @@ class Disciple_Tools_Tasks_Base {
         }
 
         if ( $post_type !== $this->post_type ){
-            $fields[ 'dt_tasks' ] = [
+            $fields['dt_tasks'] = [
                 'name' => $this->plural_name,
                 'description' => '',
                 'type' => 'connection',
@@ -208,7 +208,7 @@ class Disciple_Tools_Tasks_Base {
                 if ( $task['status']['key'] !== 'todo' ){
                     continue;
                 }
-            ?>
+                ?>
             <section class="cell small-12" id="task-<?php echo esc_html( $task['ID'] ); ?>">
                 <div class="bordered-box detail-notification-box" style="background-color: #FF9800; text-align: start">
                     <div class="section-subheader">
@@ -223,7 +223,7 @@ class Disciple_Tools_Tasks_Base {
                             </a>
                         </div>
                         <div>
-                            <?php if ( !empty( $task['linked_comment'])) : ?>
+                            <?php if ( !empty( $task['linked_comment'] ) ) : ?>
                                 <button class="button small task-scroll-comment" style="margin-bottom: 0" data-comment="<?php echo esc_html( $task['linked_comment'] ); ?>">See Comment</button>
 
                             <?php endif; ?>
@@ -296,8 +296,8 @@ class Disciple_Tools_Tasks_Base {
                 $notes_exploded = explode( "\r\n", $initial_fields['notes'][0] );
                 $name = 'Review Webform';
                 if ( isset( $notes_exploded[1] ) && str_contains( $notes_exploded[1], 'Description: ' ) ){
-                    $name = str_replace(  'Description: ', '', $notes_exploded[1] );
-                } elseif ( get_current_user_id() === 0 && !empty( wp_get_current_user()->display_name )){
+                    $name = str_replace( 'Description: ', '', $notes_exploded[1] );
+                } elseif ( get_current_user_id() === 0 && !empty( wp_get_current_user()->display_name ) ){
                     $name = 'Review ' . wp_get_current_user()->display_name;
                 }
 

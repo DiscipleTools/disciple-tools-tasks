@@ -30,7 +30,7 @@ class DT_Tasks_Tile extends DT_Dashboard_Tile
         $team_tasks = [];
 
         $nobody_tasks = DT_Posts::list_posts( 'tasks', [
-            'fields' => [ 'assigned_contact' => []],
+            'fields' => [ 'assigned_contact' => [] ],
             'sort' => '-post_date',
             'limit' => 20
         ], true );
@@ -83,4 +83,4 @@ DT_Dashboard_Plugin_Tiles::instance()->register(
             'priority' => 3,
             'span' => 1
         ]
-    ));
+));
