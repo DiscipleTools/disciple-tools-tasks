@@ -30,7 +30,7 @@ class DT_Tasks_Tile extends DT_Dashboard_Tile
         $team_tasks = [];
 
         $nobody_tasks = DT_Posts::list_posts( 'tasks', [
-            'fields' => [ 'assigned_contact' => [] ],
+            'fields' => [ 'assigned_contact' => [], 'status' => [ 'todo' ] ],
             'sort' => '-post_date',
             'limit' => 20
         ], true );
@@ -40,7 +40,7 @@ class DT_Tasks_Tile extends DT_Dashboard_Tile
         <div class='tile-header'>
             Tasks
         </div>
-        <div class="tile-body">
+        <div class="tile-body" style="overflow-y: scroll">
             <strong>My Tasks</strong>
             <?php foreach ( array_slice( $my_tasks['posts'], 0, 8 ) as $c ) :
                 $record_link = $c['record_link'] ?? $c['permalink'];
@@ -83,4 +83,5 @@ DT_Dashboard_Plugin_Tiles::instance()->register(
             'priority' => 3,
             'span' => 1
         ]
-));
+    )
+);
