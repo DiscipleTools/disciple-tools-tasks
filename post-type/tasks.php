@@ -313,17 +313,50 @@ class Disciple_Tools_Tasks_Base {
                     $user_contact = get_user_option( 'corresponds_to_contact', $user_id );
                     $task['assigned_contact'] = [ 'values' => [ [ 'value' => $user_contact ] ] ];
                 }
-                $create = DT_Posts::create_post( 'tasks', $task, false, false );
+                $create = DT_Posts::create_post( 'tasks', $task, true, false );
             }
+        }
+    }
+
+    public function notification_for_task( $post_type, $post_id, $initial_fields ){
+        if ( $post_type !== $this->post_type ){
+            return;
+        }
+        $value = $initial_fields['assigned_contact']['values'][0]['value'] ?? null;
+        if ( empty( $value ) && empty( $initial_fields['assigned_contact']['values'][0]['delete'] ) ){
+            return;
+        }
+        $user_id = get_post_meta( $value, 'corresponds_to_user', true );
+        if ( $user_id ){
+            DT_Posts::add_shared( $post_type, $post_id, $user_id, null, false, false, false );
+            Disciple_Tools_Notifications::insert_notification_for_subassigned( $user_id, $post_id );
+
+            $args = [
+                'user_id'             => $user_id,
+                'source_user_id'      => get_current_user_id(),
+                'post_id'             => $post_id,
+                'secondary_item_id'   => 0,
+                'notification_name'   => 'assigned_to',
+                'notification_action' => 'alert',
+                'notification_note'   => '<a href="' . home_url( '/' ) . get_post_type( $post_id ) . '/' . $post_id . '" >' . strip_tags( get_the_title( $post_id ) ) . '</a> was sub-assigned to you.',
+                'date_notified'       => current_time( 'mysql' ),
+                'is_new'              => 1,
+                'field_key'           => 'comments',
+                'field_value'         => ''
+            ];
+
+            do_action( 'send_notification_on_channels', $user_id, $args, 'assigned_to', [] );
         }
     }
 
     //action when a post has been created
     public function dt_post_created( $post_type, $post_id, $initial_fields ){
         $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
+        $this->notification_for_task( $post_type, $post_id, $initial_fields );
     }
     public function dt_post_updated( $post_type, $post_id, $initial_fields ){
         $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
+        $this->notification_for_task( $post_type, $post_id, $initial_fields );
     }
 
     //list page filters function
