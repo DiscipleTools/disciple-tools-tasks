@@ -329,7 +329,6 @@ class Disciple_Tools_Tasks_Base {
         $user_id = get_post_meta( $value, 'corresponds_to_user', true );
         if ( $user_id ){
             DT_Posts::add_shared( $post_type, $post_id, $user_id, null, false, false, false );
-            Disciple_Tools_Notifications::insert_notification_for_subassigned( $user_id, $post_id );
 
             $args = [
                 'user_id'             => $user_id,
