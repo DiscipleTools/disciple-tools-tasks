@@ -42,6 +42,7 @@ class Disciple_Tools_Tasks_Base {
         add_filter( 'dt_post_create_fields', [ $this, 'dt_post_create_fields' ], 10, 2 );
         add_action( 'dt_post_created', [ $this, 'dt_post_created' ], 10, 3 );
         add_action( 'dt_post_updated', [ $this, 'dt_post_updated' ], 10, 3 );
+        add_action( 'dt_custom_notification_note', [ $this, 'dt_custom_notification_note' ], 10, 4 );
 
         //list
         add_filter( 'dt_user_list_filters', [ $this, 'dt_user_list_filters' ], 120, 2 );
@@ -318,6 +319,36 @@ class Disciple_Tools_Tasks_Base {
         }
     }
 
+    public function dt_custom_notification_note( $note, $notification, $html, $condensed ){
+        if ( $notification['notification_name'] !== 'task_assigned_to' ){
+            return $note;
+        }
+        $object_id = $notification['post_id'];
+        $post = get_post( $object_id );
+        $task = DT_Posts::get_post( $post->post_type, $object_id, true, false );
+        $post_title = isset( $post->post_title ) ? sanitize_text_field( $post->post_title ) : '';
+        $notification_note = $notification['notification_note']; // $notification_note is expected to contain HTML
+        if ( $html ){
+            $link = '<a href="' . home_url( '/tasks' ) . '/' . $object_id . '">' . $post_title . '</a>';
+        } else {
+            $link = home_url( '/tasks' ) . '/' . $object_id;
+        }
+        $linked_record = $this->get_linked_record( $task );
+        $notification_note = sprintf( esc_html_x( 'You have been assigned: %1$s.', 'You have been assigned: contact1.', 'disciple_tools' ), $link );
+        //new line
+        if ( !empty( $linked_record ) ){
+            $notification_note .= "\r\n";
+            //link to record
+            if ( $html ){
+                $record_link = '<a href="' . $linked_record['permalink'] . '">' . $linked_record['post_title'] . '</a>';
+                $notification_note .= sprintf( esc_html_x( 'On record: %1$s', 'On Record: contact1.', 'disciple_tools' ), $record_link );
+            } else {
+                $notification_note .= sprintf( esc_html_x( 'On record: %1$s', 'On Record: contact1.', 'disciple_tools' ), $linked_record['permalink'] );
+            }
+        }
+        return $notification_note;
+    }
+
     public function notification_for_task( $post_type, $post_id, $initial_fields ){
         if ( $post_type !== $this->post_type ){
             return;
@@ -335,12 +366,12 @@ class Disciple_Tools_Tasks_Base {
                 'source_user_id'      => get_current_user_id(),
                 'post_id'             => $post_id,
                 'secondary_item_id'   => 0,
-                'notification_name'   => 'assigned_to',
+                'notification_name'   => 'task_assigned_to',
                 'notification_action' => 'alert',
                 'notification_note'   => '<a href="' . home_url( '/' ) . get_post_type( $post_id ) . '/' . $post_id . '" >' . strip_tags( get_the_title( $post_id ) ) . '</a> was sub-assigned to you.',
                 'date_notified'       => current_time( 'mysql' ),
                 'is_new'              => 1,
-                'field_key'           => 'comments',
+                'field_key'           => '',
                 'field_value'         => ''
             ];
 
@@ -348,12 +379,35 @@ class Disciple_Tools_Tasks_Base {
         }
     }
 
+    public function get_linked_record( $task ){
+        foreach ( $task as $key => $value ){
+            if ( str_contains( $key, 'connected_task_' ) && isset( $value[0]['ID'] ) ){
+                return $value[0];
+            }
+        }
+        return null;
+    }
+
+    private function check_linked_record( $post_type, $post_id, $initial_fields ){
+        $task = DT_Posts::get_post( $post_type, $post_id, true, false );
+        if ( empty( $task['record_link'] ) ){
+            foreach ( $task as $key => $value ){
+                if ( str_contains( $key, 'connected_task_' ) && isset( $value[0]['permalink'] ) ){
+                    $linked_record = $value[0]['permalink'];
+                    DT_Posts::update_post( $post_type, $post_id, [ 'record_link' => $linked_record ], true, false );
+                }
+            }
+        }
+    }
+
     //action when a post has been created
     public function dt_post_created( $post_type, $post_id, $initial_fields ){
+        $this->check_linked_record( $post_type, $post_id, $initial_fields );
         $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
         $this->notification_for_task( $post_type, $post_id, $initial_fields );
     }
     public function dt_post_updated( $post_type, $post_id, $initial_fields ){
+        $this->check_linked_record( $post_type, $post_id, $initial_fields );
         $this->create_task_for_webform( $post_type, $post_id, $initial_fields );
         $this->notification_for_task( $post_type, $post_id, $initial_fields );
     }

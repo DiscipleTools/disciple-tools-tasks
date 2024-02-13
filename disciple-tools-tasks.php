@@ -5,7 +5,7 @@
  * Description: Disciple.Tools - Tasks is intended to help developers and integrator jumpstart their extension of the Disciple.Tools system.
  * Text Domain: disciple-tools-tasks
  * Domain Path: /languages
- * Version:  2023.11.15
+ * Version:  2024.02.13
  * Author URI: https://github.com/DiscipleTools
  * GitHub Plugin URI: https://github.com/DiscipleTools/disciple-tools-tasks
  * Requires at least: 4.7.0
