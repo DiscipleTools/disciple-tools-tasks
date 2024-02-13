@@ -319,7 +319,7 @@ class Disciple_Tools_Tasks_Base {
         }
     }
 
-    public function dt_custom_notification_note( $note, $notification, $html, $condensed ){
+    public function dt_custom_notification_note( $note, $notification, $html = true, $condensed = false ){
         if ( $notification['notification_name'] !== 'task_assigned_to' ){
             return $note;
         }
