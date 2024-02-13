@@ -36,9 +36,10 @@ class DT_Tasks_Tile extends DT_Dashboard_Tile
         ], true );
 
 
+        $my_tasks_filter =  home_url( 'tasks?filter_id=my_todo&filter_tab=all') ;
         ?>
         <div class='tile-header'>
-            Tasks
+            Tasks <a href="<?php echo esc_url( $my_tasks_filter ) ?>"><img class="dt-white-icon" style="height: 3rem" src="<?php echo esc_html( get_template_directory_uri() . '/dt-assets/images/open-link.svg' ) ?>"/></a>
         </div>
         <div class="tile-body" style="overflow-y: scroll">
             <strong>My Tasks</strong>
