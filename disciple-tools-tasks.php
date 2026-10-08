@@ -54,7 +54,6 @@ function disciple_tools_tasks() {
     }
 
     return Disciple_Tools_Tasks::instance();
-
 }
 add_action( 'after_setup_theme', 'disciple_tools_tasks', 20 );
 
@@ -105,7 +104,6 @@ class Disciple_Tools_Tasks {
         if ( is_admin() ) { // adds links to the plugin description area in the plugin admin list.
             add_filter( 'plugin_row_meta', [ $this, 'plugin_description_links' ], 10, 4 );
         }
-
     }
 
     /**
